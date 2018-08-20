@@ -12,6 +12,9 @@ from utils.inference import apply_offsets
 from utils.inference import load_detection_model
 from utils.preprocessor import preprocess_input
 
+from pythonosc import osc_message_builder
+from pythonosc import udp_client
+
 # parameters for loading data and images
 detection_model_path = '../trained_models/detection_models/haarcascade_frontalface_default.xml'
 emotion_model_path = '../trained_models/emotion_models/fer2013_mini_XCEPTION.102-0.66.hdf5'
@@ -31,6 +34,9 @@ emotion_target_size = emotion_classifier.input_shape[1:3]
 # starting lists for calculating modes
 emotion_window = []
 
+# Setup OSC Client
+client = udp_client.SimpleUDPClient("239.255.0.100", 9010)
+
 # starting video streaming
 cv2.namedWindow('window_frame')
 video_capture = cv2.VideoCapture(0)
@@ -40,6 +46,7 @@ while True:
     rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
     faces = detect_faces(face_detection, gray_image)
 
+    emotionRange = ['','','','','','','']
     for face_coordinates in faces:
 
         x1, x2, y1, y2 = apply_offsets(face_coordinates, emotion_offsets)
@@ -49,6 +56,7 @@ while True:
         except:
             continue
 
+        #0:'angry',1:'disgust',2:'fear',3:'happy',4:'sad',5:'surprise',6:'neutral'
         gray_face = preprocess_input(gray_face, True)
         gray_face = np.expand_dims(gray_face, 0)
         gray_face = np.expand_dims(gray_face, -1)
@@ -76,6 +84,31 @@ while True:
         else:
             color = emotion_probability * np.asarray((0, 255, 0))
 
+        #print (emotion_prediction)
+        #print ("Angry: ", round(emotion_prediction[0][0], 3))
+        #print ("Disgust: ", round(emotion_prediction[0][1], 3))
+        #print ("Fear: ", round(emotion_prediction[0][2], 3))
+        #print ("Happy: " + str(round(emotion_prediction[0][3], 3)))
+        
+        emotionRange[0] = "Angry: " + str(round(emotion_prediction[0][0], 3))
+        emotionRange[1] = "Disgust: " + str(round(emotion_prediction[0][1], 3))
+        emotionRange[2] = "Fear: " + str(round(emotion_prediction[0][2], 3))
+        emotionRange[3] = "Happy: " + str(round(emotion_prediction[0][3], 3))
+        emotionRange[4] = "Sad: " + str(round(emotion_prediction[0][4], 3))
+        emotionRange[5] = "Surprise: " + str(round(emotion_prediction[0][5], 3))
+        emotionRange[6] = "Neutral: " + str(round(emotion_prediction[0][6], 3))
+        
+        # Create / Send OSC Message
+        msg = osc_message_builder.OscMessageBuilder(address="/emotion/scores")
+        msg.add_arg(float(round(emotion_prediction[0][0], 3)))
+        msg.add_arg(float(round(emotion_prediction[0][1], 3)))
+        msg.add_arg(float(round(emotion_prediction[0][2], 3)))
+        msg.add_arg(float(round(emotion_prediction[0][3], 3)))
+        msg.add_arg(float(round(emotion_prediction[0][4], 3)))
+        msg.add_arg(float(round(emotion_prediction[0][5], 3)))
+        msg.add_arg(float(round(emotion_prediction[0][6], 3)))
+        client.send(msg.build())
+        
         color = color.astype(int)
         color = color.tolist()
 
@@ -84,6 +117,14 @@ while True:
                   color, 0, -45, 1, 1)
 
     bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(bgr_image,emotionRange[0],(0,30), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    cv2.putText(bgr_image,emotionRange[1],(0,60), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    cv2.putText(bgr_image,emotionRange[2],(0,90), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    cv2.putText(bgr_image,emotionRange[3],(0,120), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    cv2.putText(bgr_image,emotionRange[4],(0,150), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    cv2.putText(bgr_image,emotionRange[5],(0,180), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    cv2.putText(bgr_image,emotionRange[6],(0,210), font, 0.5,(255,255,255),1,cv2.LINE_AA)
     cv2.imshow('window_frame', bgr_image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
