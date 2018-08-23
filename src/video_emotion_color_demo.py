@@ -35,11 +35,16 @@ emotion_target_size = emotion_classifier.input_shape[1:3]
 emotion_window = []
 
 # Setup OSC Client
-client = udp_client.SimpleUDPClient("239.255.0.100", 9010)
+client = udp_client.SimpleUDPClient("127.0.0.1", 9010)
 
 # starting video streaming
 cv2.namedWindow('window_frame')
 video_capture = cv2.VideoCapture(0)
+# seems to be necessary for some cameras - grabbing a couple frames in the beginning
+video_capture.read()
+video_capture.read()
+
+# capture and process loop
 while True:
     bgr_image = video_capture.read()[1]
     gray_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
@@ -118,6 +123,7 @@ while True:
 
     bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
     font = cv2.FONT_HERSHEY_SIMPLEX
+
     cv2.putText(bgr_image,emotionRange[0],(0,30), font, 0.5,(255,255,255),1,cv2.LINE_AA)
     cv2.putText(bgr_image,emotionRange[1],(0,60), font, 0.5,(255,255,255),1,cv2.LINE_AA)
     cv2.putText(bgr_image,emotionRange[2],(0,90), font, 0.5,(255,255,255),1,cv2.LINE_AA)
@@ -125,6 +131,7 @@ while True:
     cv2.putText(bgr_image,emotionRange[4],(0,150), font, 0.5,(255,255,255),1,cv2.LINE_AA)
     cv2.putText(bgr_image,emotionRange[5],(0,180), font, 0.5,(255,255,255),1,cv2.LINE_AA)
     cv2.putText(bgr_image,emotionRange[6],(0,210), font, 0.5,(255,255,255),1,cv2.LINE_AA)
+    
     cv2.imshow('window_frame', bgr_image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
