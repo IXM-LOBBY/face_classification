@@ -121,6 +121,10 @@ while True:
         draw_text(face_coordinates, rgb_image, emotion_mode,
                   color, 0, -45, 1, 1)
 
+    msg2 = osc_message_builder.OscMessageBuilder(address="/emotion/faceCount")
+    msg2.add_arg(float(len(faces)))
+    client.send(msg2.build())
+
     bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
     font = cv2.FONT_HERSHEY_SIMPLEX
 
