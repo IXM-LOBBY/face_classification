@@ -13,6 +13,7 @@ from utils.inference import load_detection_model
 from utils.preprocessor import preprocess_input
 
 from pythonosc import osc_message_builder
+from pythonosc import osc_bundle_builder
 from pythonosc import udp_client
 
 # parameters for loading data and images
@@ -51,8 +52,11 @@ while True:
     rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
     faces = detect_faces(face_detection, gray_image)
 
+    # create OSC bundle to hold all frame data
+    bundle = osc_bundle_builder.OscBundleBuilder(osc_bundle_builder.IMMEDIATELY)
+
     emotionRange = ['','','','','','','']
-    for face_coordinates in faces:
+    for face_index, face_coordinates in enumerate(faces):
 
         x1, x2, y1, y2 = apply_offsets(face_coordinates, emotion_offsets)
         gray_face = gray_image[y1:y2, x1:x2]
@@ -103,8 +107,8 @@ while True:
         emotionRange[5] = "Surprise: " + str(round(emotion_prediction[0][5], 3))
         emotionRange[6] = "Neutral: " + str(round(emotion_prediction[0][6], 3))
         
-        # Create / Send OSC Message
-        msg = osc_message_builder.OscMessageBuilder(address="/emotion/scores")
+        # emotion scores OSC message
+        msg = osc_message_builder.OscMessageBuilder(address="/emotion/" + str(face_index) + "/scores")
         msg.add_arg(float(round(emotion_prediction[0][0], 3)))
         msg.add_arg(float(round(emotion_prediction[0][1], 3)))
         msg.add_arg(float(round(emotion_prediction[0][2], 3)))
@@ -112,8 +116,16 @@ while True:
         msg.add_arg(float(round(emotion_prediction[0][4], 3)))
         msg.add_arg(float(round(emotion_prediction[0][5], 3)))
         msg.add_arg(float(round(emotion_prediction[0][6], 3)))
-        client.send(msg.build())
-        
+        bundle.add_content(msg.build())
+
+        # bounding box OSC message
+        msg_bounds = osc_message_builder.OscMessageBuilder(address="/emotion/" + str(face_index) + "/bounds")
+        msg_bounds.add_arg(float(round(x1, 3)))
+        msg_bounds.add_arg(float(round(x2, 3)))
+        msg_bounds.add_arg(float(round(y1, 3)))
+        msg_bounds.add_arg(float(round(y2, 3)))   
+        bundle.add_content(msg_bounds.build())     
+
         color = color.astype(int)
         color = color.tolist()
 
@@ -123,7 +135,9 @@ while True:
 
     msg2 = osc_message_builder.OscMessageBuilder(address="/emotion/faceCount")
     msg2.add_arg(float(len(faces)))
-    client.send(msg2.build())
+    bundle.add_content(msg2.build())
+
+    client.send(bundle.build())
 
     bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
     font = cv2.FONT_HERSHEY_SIMPLEX
